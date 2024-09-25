@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, redirect, url_for, render_template, flash
+from flask import Flask, request, redirect, render_template, flash
 from werkzeug.utils import secure_filename
 import numpy as np
 import cv2
@@ -122,6 +122,11 @@ def index():
             filename = secure_filename(file.filename)
             file.save(os.path.join(UPLOAD_FOLDER, filename))
             process_file(os.path.join(UPLOAD_FOLDER, filename), filename)
+
+            processed_image_path = os.path.join(DOWNLOAD_FOLDER, filename)
+            upload_bucket = "open-cv-upload-bucket"
+            s3.upload_file(processed_image_path, upload_bucket, f"processed/{filename}")
+
 
             data = {
                 "processed_img": 'static/downloads/' + filename,
