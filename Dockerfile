@@ -11,8 +11,8 @@ RUN pip3 install -r requirements.txt
 
 COPY . .
 
-RUN mkdir ./static/downloads
-RUN mkdir ./static/uploads
+RUN mkdir -p ./static/downloads
+RUN mkdir -p ./static/uploads
 
 
 EXPOSE 5000
