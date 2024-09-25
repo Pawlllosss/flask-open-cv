@@ -9,6 +9,27 @@ UPLOAD_FOLDER = "static/uploads/"
 DOWNLOAD_FOLDER = "static/downloads/"
 ALLOWED_EXTENSIONS = {"jpg", "png", "jpeg"}
 
+# Global variables for the model
+CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+           "sofa", "train", "tvmonitor"]
+COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
+net = None  # Global variable for the model
+
+def load_model():
+    """Loads the pre-trained SSD model."""
+    global net
+    prototxt = "ssd/MobileNetSSD_deploy.prototxt.txt"
+    model = "ssd/MobileNetSSD_deploy.caffemodel"
+    net = cv2.dnn.readNetFromCaffe(prototxt, model)
+
+# Ensure the model is loaded only once when the app starts
+@app.before_request
+def ensure_model_loaded():
+    global net
+    if net is None:
+        load_model()
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -19,22 +40,8 @@ def process_file(path, filename):
 
 
 def detect_object(path, filename):
-    # List of class labels for object detection
-    CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-               "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-               "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-               "sofa", "train", "tvmonitor"]
-
-    # Generate random colors for each class
-    COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
-
-    # Paths to the SSD model files
-    prototxt = "ssd/MobileNetSSD_deploy.prototxt.txt"
-    model = "ssd/MobileNetSSD_deploy.caffemodel"
-
-    # Load the pre-trained model
-    net = cv2.dnn.readNetFromCaffe(prototxt, model)
-
+    """Detects objects in the provided image using the preloaded model."""
+    global net  # Use the globally loaded model
     # Load the input image and get its dimensions
     image = cv2.imread(path)
     (h, w) = image.shape[:2]
