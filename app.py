@@ -3,6 +3,7 @@ from flask import Flask, request, redirect, url_for, render_template, flash
 from werkzeug.utils import secure_filename
 import numpy as np
 import cv2
+import boto3
 
 app = Flask(__name__, static_url_path="/static")
 UPLOAD_FOLDER = "static/uploads/"
@@ -17,12 +18,34 @@ CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
 net = None  # Global variable for the model
 
+# Initialize the S3 client
+s3 = boto3.client('s3')
+
+# Temporary directory to store the downloaded files
+TMP_DIR = "/tmp"
+
+def download_from_s3(bucket_name, s3_key, local_file_path):
+    """Downloads a file from an S3 bucket to a local path."""
+    s3.download_file(bucket_name, s3_key, local_file_path)
+
 def load_model():
     """Loads the pre-trained SSD model."""
     global net
-    prototxt = "ssd/MobileNetSSD_deploy.prototxt.txt"
-    model = "ssd/MobileNetSSD_deploy.caffemodel"
-    net = cv2.dnn.readNetFromCaffe(prototxt, model)
+
+    # S3 bucket information
+    bucket_name = "open-cv-model-repo"
+    model_s3_key = "ssd/MobileNetSSD_deploy.caffemodel"
+    prototxt_s3_key = "ssd/MobileNetSSD_deploy.prototxt.txt"
+
+    # Paths to save the downloaded files locally
+    prototxt_local_path = os.path.join(TMP_DIR, "MobileNetSSD_deploy.prototxt.txt")
+    model_local_path = os.path.join(TMP_DIR, "MobileNetSSD_deploy.caffemodel")
+
+    download_from_s3(bucket_name, prototxt_s3_key, prototxt_local_path)
+    download_from_s3(bucket_name, model_s3_key, model_local_path)
+
+    # Load the pre-trained model using OpenCV's DNN module
+    net = cv2.dnn.readNetFromCaffe(prototxt_local_path, model_local_path)
 
 # Ensure the model is loaded only once when the app starts
 @app.before_request
