@@ -2,6 +2,8 @@
 
 FROM python:3.9-slim-buster
 
+ENV AWS_DEFAULT_REGION=us-east-1
+
 WORKDIR /python-docker
 
 RUN apt-get update && apt-get install -y python3-opencv
