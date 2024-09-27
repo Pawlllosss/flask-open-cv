@@ -118,7 +118,6 @@ def iris_infer():
         request_json['petalLength'],
         request_json['petalWidth']
     ]
-
     sagemaker_body = ','.join(map(str, model_request_parameters))
 
     response = sagemaker_client.invoke_endpoint(
