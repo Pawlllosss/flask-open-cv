@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, redirect, render_template, flash
+from flask import Flask, request, redirect, render_template, flash, jsonify
 from werkzeug.utils import secure_filename
 import numpy as np
 import cv2
@@ -21,12 +21,17 @@ net = None  # Global variable for the model
 # Initialize the S3 client
 s3 = boto3.client('s3')
 
+sagemaker_client = boto3.client('runtime.sagemaker')
+sagemaker_endpoint_name = 'xgboost-2024-09-27-15-28-12-384'
+
 # Temporary directory to store the downloaded files
 TMP_DIR = "/tmp"
+
 
 def download_from_s3(bucket_name, s3_key, local_file_path):
     """Downloads a file from an S3 bucket to a local path."""
     s3.download_file(bucket_name, s3_key, local_file_path)
+
 
 def load_model():
     """Loads the pre-trained SSD model."""
@@ -47,12 +52,14 @@ def load_model():
     # Load the pre-trained model using OpenCV's DNN module
     net = cv2.dnn.readNetFromCaffe(prototxt_local_path, model_local_path)
 
+
 # Ensure the model is loaded only once when the app starts
 @app.before_request
 def ensure_model_loaded():
     global net
     if net is None:
         load_model()
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -102,6 +109,31 @@ def detect_object(path, filename):
     cv2.imwrite(f"{DOWNLOAD_FOLDER}{filename}", image)
 
 
+@app.route('/iris', methods=['PUT'])
+def iris_infer():
+    request_json = request.json
+    model_request_parameters = [
+        request_json['sepalLength'],
+        request_json['sepalWidth'],
+        request_json['petalLength'],
+        request_json['petalWidth']
+    ]
+
+    sagemaker_body = ','.join(map(str, model_request_parameters))
+
+    response = sagemaker_client.invoke_endpoint(
+        EndpointName=sagemaker_endpoint_name,
+        ContentType='text/csv',
+        Body=sagemaker_body,
+    )
+
+    # Parse the response from SageMaker
+    result = response['Body'].read().decode('utf-8')
+
+    # Return the prediction result as JSON
+    return jsonify({'prediction': result})
+
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -126,7 +158,6 @@ def index():
             processed_image_path = os.path.join(DOWNLOAD_FOLDER, filename)
             upload_bucket = "open-cv-upload-bucket"
             s3.upload_file(processed_image_path, upload_bucket, f"processed/{filename}")
-
 
             data = {
                 "processed_img": 'static/downloads/' + filename,
